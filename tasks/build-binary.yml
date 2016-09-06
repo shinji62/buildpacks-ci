@@ -9,6 +9,7 @@ inputs:
   - name: buildpacks-ci
   - name: builds-yaml
   - name: built-yaml
+  - name: oracle-tar
 outputs:
   - name: binary-builder-artifacts
   - name: builds-yaml-artifacts
@@ -16,6 +17,10 @@ run:
   path: bash
   args:
     - -cl
-    - buildpacks-ci/scripts/build-binary.rb
+    - |
+      tar xvf oracle-tar/instantclient-gwenn*.tar.gz
+      mv  ./instantclient_12_1 /oracle
+      buildpacks-ci/scripts/build-binary.rb
+
 params:
   RUBYGEM_MIRROR:

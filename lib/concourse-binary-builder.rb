@@ -145,26 +145,9 @@ class ConcourseBinaryBuilder
   end
 
   def commit_yaml_artifacts(git_msg)
-    #don't change behavior for non-automated builds
-    if is_automated
-      #get latest version of <binary>-built.yml
-      add_ssh_key_and_update(built_dir, 'binary-built-output')
-      built_file = File.join(built_dir, "#{binary_name}-built.yml")
-      built = YAML.load_file(built_file)
-      built_versions = built[binary_name]
-
-      if dependency_version_not_built(built_versions)
-        built[binary_name].push latest_build
-        built[binary_name][-1]["timestamp"] = Time.now.utc.to_s
-
-        File.write(built_file, built.to_yaml)
-      end
-      commit_and_rsync(built_dir, builds_yaml_artifacts, git_msg, built_file)
-    else
       builds_file = File.join(builds_dir, "#{binary_name}-builds.yml")
       File.write(builds_file, remaining_builds.to_yaml)
       commit_and_rsync(builds_dir, builds_yaml_artifacts, git_msg, builds_file)
-    end
   end
 
   def run_binary_builder(flags)

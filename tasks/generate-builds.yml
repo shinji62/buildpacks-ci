@@ -1,0 +1,17 @@
+---
+platform: linux
+image_resource:
+  type: docker-image
+  source:
+    repository: getourneau/alpine-docker-buildpacks
+inputs:
+  - name: buildpacks-ci
+  - name: buildpack-repo
+  - name: builds-yaml
+outputs:
+  - name: builds-yaml-output
+  - name: results
+params:
+  BINARY:
+run:
+  path: buildpacks-ci/scripts/getting-phpversion.rb

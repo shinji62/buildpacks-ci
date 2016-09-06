@@ -1,0 +1,164 @@
+---
+resource_types:
+- name: slack-notification
+  type: docker-image
+  source:
+    repository: cfcommunity/slack-notification-resource
+    tag: latest
+
+resources:
+  - name: slack-alert-build
+    type: slack-notification
+    source:
+      url: {{buildpack-hook}}
+
+  - name: buildpacks-ci
+    type: git
+    source:
+      uri: {{buildpacks-ci-git-uri-public}}
+      branch: {{buildpacks-ci-git-uri-public-branch}}
+
+  - name: oracle-tar
+    type: s3
+    source:
+      bucket: {{buildpacks-binaries-s3-bucket}}
+      regexp: instantclient-gwenn.x64-(.*).tar.gz
+      access_key_id: {{access-key-concourse-bucket}}
+      secret_access_key: {{secret-key-concourse-bucket}}
+      region_name: {{buildpack-s3-region}}
+
+  - name: binary-builder-fork
+    type: git
+    source:
+      uri: {{binary-builder-git-uri-fork}}
+      branch: fork-yahoo
+      private_key: {{private-key-github-concourse}}
+
+  - name: builds-out
+    type: git
+    source:
+      branch: binary-builds
+      private_key: {{private-key-github-concourse}}
+      uri: {{buildpacks-ci-git-uri}}
+
+  - name: php-builds
+    type: git
+    source:
+      branch: binary-builds
+      private_key: {{private-key-github-concourse}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ php-builds.yml ]
+
+  - name: php-built-output
+    type: git
+    source:
+      branch: binary-built-output
+      private_key: {{private-key-github-concourse}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ php-built.yml ]
+
+  - name: php7-builds
+    type: git
+    source:
+      branch: binary-builds
+      private_key: {{private-key-github-concourse}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ php7-builds.yml ]
+
+  - name: php7-built-output
+    type: git
+    source:
+      branch: binary-built-output
+      private_key: {{private-key-github-concourse}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ php7-built.yml ]
+
+jobs:
+- name: build-php
+  serial: true
+  public: true
+  serial_groups: [building-php]
+  plan:
+    - aggregate:
+      - get: builds-yaml
+        resource: php-builds
+        trigger: true
+      - get: binary-builder
+        resource: binary-builder-fork
+      - get: oracle-tar
+      - get: buildpacks-ci
+      - get: built-yaml
+        resource: php-built-output
+    - do:
+      - task: build-binary
+        file: buildpacks-ci/tasks/build-binary.yml
+        params:
+          BINARY_NAME: php
+          GIT_SSH_KEY: {{private-key-github-concourse}}
+          RUBYGEM_MIRROR: {{rubygem-mirror}}
+          BINARY_BUILDER_PLATFORM: {{binary-builder-platform}}
+          BINARY_BUILDER_OS_NAME: {{binary-builder-os-name}}
+        privileged: true
+      - task: push-binary
+        file: buildpacks-ci/tasks/push-binary.yml
+        params:
+          BINARY_NAME: php
+          BUCKET_NAME: {{buildpacks-binaries-s3-bucket}}
+          AWS_ACCESS_KEY_ID: {{access-key-concourse-bucket}}
+          AWS_SECRET_ACCESS_KEY: {{secret-key-concourse-bucket}}
+          AWS_DEFAULT_REGION: ap-northeast-1
+        privileged: true
+      - put: builds-out
+        params:
+          repository: builds-yaml-artifacts
+          rebase: true
+      on_failure:
+        put: slack-alert-build
+        params:
+          channel: '#test'
+          text: "binary-builder build-php job on Concourse failed! \n "
+
+
+- name: build-php7
+  serial: true
+  public: true
+  serial_groups: [building-php]
+  plan:
+    - aggregate:
+      - get: builds-yaml
+        resource: php7-builds
+        trigger: true
+      - get: binary-builder
+        resource: binary-builder-fork
+      - get: oracle-tar
+      - get: buildpacks-ci
+      - get: built-yaml
+        resource: php7-built-output
+    - do:
+      - task: build-binary
+        file: buildpacks-ci/tasks/build-binary.yml
+        params:
+          BINARY_NAME: php7
+          GIT_SSH_KEY: {{private-key-github-concourse}}
+          RUBYGEM_MIRROR: {{rubygem-mirror}}
+          BINARY_BUILDER_PLATFORM: {{binary-builder-platform}}
+          BINARY_BUILDER_OS_NAME: {{binary-builder-os-name}}
+        privileged: true
+      - task: push-binary
+        file: buildpacks-ci/tasks/push-binary.yml
+        params:
+          BINARY_NAME: php7
+          BUCKET_NAME: {{buildpacks-binaries-s3-bucket}}
+          AWS_ACCESS_KEY_ID: {{access-key-concourse-bucket}}
+          AWS_SECRET_ACCESS_KEY: {{secret-key-concourse-bucket}}
+          AWS_DEFAULT_REGION: ap-northeast-1
+        privileged: true
+      - put: builds-out
+        params:
+          repository: builds-yaml-artifacts
+          force: true
+      on_failure:
+        put: slack-alert-build
+        params:
+          channel: '#test'
+          text: "binary-builder build-php7 job on Concourse failed! \n "

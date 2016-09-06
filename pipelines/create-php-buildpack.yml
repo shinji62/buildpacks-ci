@@ -1,0 +1,88 @@
+---
+resource_types:
+- name: slack-notification
+  type: docker-image
+  source:
+    repository: cfcommunity/slack-notification-resource
+    tag: latest
+
+resources:
+
+  - name: pivotal-buildpack-cached
+    type: s3
+    source:
+      bucket: {{buildpacks-binaries-s3-bucket}}
+      regexp: php_buildpack-cached-v(.*).zip
+      access_key_id: {{access-key-concourse-bucket}}
+      secret_access_key: {{secret-key-concourse-bucket}}
+
+
+  - name: buildpack-packager
+    type: github-release
+    source:
+      user: cloudfoundry
+      repository: buildpack-packager
+      access_token: {{github-access-token}}
+
+
+
+  # - name: slack-alert-build
+  #   type: slack-notification
+  #   source:
+  #     url: {{buildpack-hook}}
+#-----
+# This jobs only looks for new -tagged Yahoo version
+#-----
+  - name: php-buildpack-fork
+    type: git
+    source:
+      uri: git@github.com:shinji62/php-buildpack.git
+      private_key: {{private-key-github-concourse}}
+      branch: yahoo-fork
+      tag_filter: 'v*-yahoo'
+
+  - name: buildpacks-ci
+    type: git
+    source:
+      uri: {{buildpacks-ci-git-uri-public}}
+      branch: {{buildpacks-ci-git-uri-public-branch}}
+
+jobs:
+- name: create-yahoo-manifest
+  public: true
+  serial: true
+  plan:
+  - aggregate:
+    - get: buildpack
+      resource: php-buildpack-fork
+    - get: buildpacks-ci
+  - task: create-yahoo-manifest
+    file: buildpacks-ci/tasks/update-manifest.yml
+    params:
+      AWS_DEFAULT_REGION: ap-northeast-1
+      AWS_ACCESS_KEY_ID: {{access-key-concourse-bucket}}
+      AWS_SECRET_ACCESS_KEY: {{secret-key-concourse-bucket}}
+      BP_BINARIES: buildpacks-binaries-bucket
+  - put: php-buildpack-fork
+    params:
+      repository: buildpack-repo-out
+      rebase: true
+
+- name: Create-PHP-buildpack
+  public: true
+  serial: true
+  plan:
+  - aggregate:
+    - get: buildpack-master
+      resource: php-buildpack-fork
+    - get: buildpack-packager
+    - get: buildpacks-ci
+  - task: generate-buildpack
+    file: buildpacks-ci/tasks/package-buildpack.yml
+    params:
+      BINARY_NAME: php
+      RUBYGEM_MIRROR: {{rubygem-mirror}}
+  - put: pivotal-buildpack-cached
+    params:
+      from: buildpack-artifacts/php_buildpack-cached-v(.*).zip
+      to: /buildpacks-cached-yahoo/php/

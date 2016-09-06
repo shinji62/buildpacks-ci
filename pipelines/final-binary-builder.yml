@@ -1,0 +1,769 @@
+resource_types:
+  - name: slack-notification
+    type: docker-image
+    source:
+      repository: cfcommunity/slack-notification-resource
+resources:
+  - name: binary-builder
+    type: git
+    source:
+      uri: {{binary-builder-git-uri}}
+  - name: buildpacks-ci
+    type: git
+    source:
+      uri: {{buildpacks-ci-git-uri-public}}
+      branch: {{buildpacks-ci-git-uri-public-branch}}
+  - name: builds-out
+    type: git
+    source:
+      branch: binary-builds
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+  - name: build-tar
+    type: s3
+    source:
+      bucket: {{buildpacks-binaries-s3-bucket}}
+      versioned_file: /concourse-artifacts/binary-builder-source.tgz
+      access_key_id: {{pivotal-buildpacks-s3-access-key}}
+      secret_access_key: {{pivotal-buildpacks-s3-secret-key}}
+  - name: failure-alert
+    type: slack-notification
+    source:
+      url: {{concourse-job-failure-notifications-slack-webhook}}
+  - name: cf-edge-environments
+    type: pool
+    source:
+      branch: resource-pools
+      pool: cf-edge-environments
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+
+  - name: composer-builds
+    type: git
+    source:
+      branch: binary-builds
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ composer-builds.yml ]
+  - name: composer-built-output
+    type: git
+    source:
+      branch: binary-built-output
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ composer-built.yml ]
+
+  - name: httpd-builds
+    type: git
+    source:
+      branch: binary-builds
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ httpd-builds.yml ]
+  - name: httpd-built-output
+    type: git
+    source:
+      branch: binary-built-output
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ httpd-built.yml ]
+
+  - name: php-builds
+    type: git
+    source:
+      branch: binary-builds
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ php-builds.yml ]
+  - name: php-built-output
+    type: git
+    source:
+      branch: binary-built-output
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ php-built.yml ]
+
+  - name: php7-builds
+    type: git
+    source:
+      branch: binary-builds
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ php7-builds.yml ]
+  - name: php7-built-output
+    type: git
+    source:
+      branch: binary-built-output
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ php7-built.yml ]
+
+  - name: nginx-builds
+    type: git
+    source:
+      branch: binary-builds
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ nginx-builds.yml ]
+  - name: nginx-built-output
+    type: git
+    source:
+      branch: binary-built-output
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ nginx-built.yml ]
+
+
+
+  - name: composer-builds-in
+    type: git
+    source:
+      branch: binary-builds
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ composer-builds.yml ]
+
+  - name: nginx-builds-in
+    type: git
+    source:
+      branch: binary-builds
+      private_key: {{buildpacks-ci-private-key}}
+      uri: {{buildpacks-ci-git-uri}}
+      paths: [ nginx-builds.yml ]
+
+
+
+  - name: composer-new-releases
+    type: git
+    source:
+      uri: {{buildpacks-ci-git-uri}}
+      branch: new-release-notifications
+      private_key: {{buildpacks-ci-private-key}}
+      paths: [ composer-new.yaml ]
+
+  - name: nginx-new-releases
+    type: git
+    source:
+      uri: {{buildpacks-ci-git-uri}}
+      branch: new-release-notifications
+      private_key: {{buildpacks-ci-private-key}}
+      paths: [ nginx-new.yaml ]
+
+
+
+  - name: php-buildpack
+    type: git
+    source:
+      uri: git@github.com:shinji62/php-buildpack.git
+      private_key: {{php-buildpack-private-key}}
+      branch: develop
+      ignore_paths:
+        - VERSION
+        - CHANGELOG
+
+
+groups:
+  - name: enqueue-automated-builds
+    jobs:
+
+    - trigger-composer-build
+
+    - trigger-nginx-build
+
+  - name: automated-builds
+    jobs:
+
+    - build-composer
+
+    - build-nginx
+
+
+  
+    - update-nginx-in-php-buildpack
+  
+    - update-composer-in-php-buildpack
+  
+
+    - test-node
+    - test-nginx
+  - name: manual-builds
+    jobs:
+
+    - build-php
+
+    - build-php7
+
+    - build-httpd
+
+    - test-php
+    - test-php7
+    - test-python
+    - test-jruby
+    - test-ruby
+  - name: binary-builder
+    jobs:
+      - binary-builder
+
+jobs:
+  - name: binary-builder
+    serial: true
+    public: true
+    plan:
+      - aggregate:
+        - get: buildpacks-ci
+        - get: binary-builder
+          trigger: true
+      - do:
+        
+        - task: all-expected-integration-specs-will-run
+          file: buildpacks-ci/tasks/binary-builder-integration-spec-presence.yml
+          params:
+            SPEC_NAMES: httpd,nginx,php5,php7,php5_with_oracle,php7_with_oracle,url_output,yaml_flag
+        - task: all-unit-tests
+          file: buildpacks-ci/tasks/binary-builder-unit.yml
+          params:
+            RUBYGEM_MIRROR: {{rubygem-mirror}}
+        - aggregate:
+          
+          - task: integration-httpd
+            file: buildpacks-ci/tasks/binary-builder-integration.yml
+            params:
+              SPEC_TO_RUN: httpd
+              RUBYGEM_MIRROR: {{rubygem-mirror}}
+              RUN_ORACLE_PHP_TESTS: true
+              AWS_ACCESS_KEY_ID: {{oracle-client-library-s3-download-access-key}}
+              AWS_SECRET_ACCESS_KEY: {{oracle-client-library-s3-download-secret-key}}
+              AWS_DEFAULT_REGION: us-east-1
+            privileged: true
+          
+          - task: integration-nginx
+            file: buildpacks-ci/tasks/binary-builder-integration.yml
+            params:
+              SPEC_TO_RUN: nginx
+              RUBYGEM_MIRROR: {{rubygem-mirror}}
+              RUN_ORACLE_PHP_TESTS: true
+              AWS_ACCESS_KEY_ID: {{oracle-client-library-s3-download-access-key}}
+              AWS_SECRET_ACCESS_KEY: {{oracle-client-library-s3-download-secret-key}}
+              AWS_DEFAULT_REGION: us-east-1
+            privileged: true
+          
+          - task: integration-php5
+            file: buildpacks-ci/tasks/binary-builder-integration.yml
+            params:
+              SPEC_TO_RUN: php5
+              RUBYGEM_MIRROR: {{rubygem-mirror}}
+              RUN_ORACLE_PHP_TESTS: true
+              AWS_ACCESS_KEY_ID: {{oracle-client-library-s3-download-access-key}}
+              AWS_SECRET_ACCESS_KEY: {{oracle-client-library-s3-download-secret-key}}
+              AWS_DEFAULT_REGION: us-east-1
+            privileged: true
+          
+          - task: integration-php7
+            file: buildpacks-ci/tasks/binary-builder-integration.yml
+            params:
+              SPEC_TO_RUN: php7
+              RUBYGEM_MIRROR: {{rubygem-mirror}}
+              RUN_ORACLE_PHP_TESTS: true
+              AWS_ACCESS_KEY_ID: {{oracle-client-library-s3-download-access-key}}
+              AWS_SECRET_ACCESS_KEY: {{oracle-client-library-s3-download-secret-key}}
+              AWS_DEFAULT_REGION: us-east-1
+            privileged: true
+          
+          - task: integration-php5_with_oracle
+            file: buildpacks-ci/tasks/binary-builder-integration.yml
+            params:
+              SPEC_TO_RUN: php5_with_oracle
+              RUBYGEM_MIRROR: {{rubygem-mirror}}
+              RUN_ORACLE_PHP_TESTS: true
+              AWS_ACCESS_KEY_ID: {{oracle-client-library-s3-download-access-key}}
+              AWS_SECRET_ACCESS_KEY: {{oracle-client-library-s3-download-secret-key}}
+              AWS_DEFAULT_REGION: us-east-1
+            privileged: true
+          
+          - task: integration-php7_with_oracle
+            file: buildpacks-ci/tasks/binary-builder-integration.yml
+            params:
+              SPEC_TO_RUN: php7_with_oracle
+              RUBYGEM_MIRROR: {{rubygem-mirror}}
+              RUN_ORACLE_PHP_TESTS: true
+              AWS_ACCESS_KEY_ID: {{oracle-client-library-s3-download-access-key}}
+              AWS_SECRET_ACCESS_KEY: {{oracle-client-library-s3-download-secret-key}}
+              AWS_DEFAULT_REGION: us-east-1
+            privileged: true
+          
+          - task: integration-url_output
+            file: buildpacks-ci/tasks/binary-builder-integration.yml
+            params:
+              SPEC_TO_RUN: url_output
+              RUBYGEM_MIRROR: {{rubygem-mirror}}
+              RUN_ORACLE_PHP_TESTS: true
+              AWS_ACCESS_KEY_ID: {{oracle-client-library-s3-download-access-key}}
+              AWS_SECRET_ACCESS_KEY: {{oracle-client-library-s3-download-secret-key}}
+              AWS_DEFAULT_REGION: us-east-1
+            privileged: true
+          
+          - task: integration-yaml_flag
+            file: buildpacks-ci/tasks/binary-builder-integration.yml
+            params:
+              SPEC_TO_RUN: yaml_flag
+              RUBYGEM_MIRROR: {{rubygem-mirror}}
+              RUN_ORACLE_PHP_TESTS: true
+              AWS_ACCESS_KEY_ID: {{oracle-client-library-s3-download-access-key}}
+              AWS_SECRET_ACCESS_KEY: {{oracle-client-library-s3-download-secret-key}}
+              AWS_DEFAULT_REGION: us-east-1
+            privileged: true
+          
+        on_failure:
+          put: failure-alert
+          params:
+            text: "binary-builder binary-builder job on Concourse failed! \n Check: $ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME"
+            channel: {{concourse-job-failure-notifications-slack-channel}}
+            username: concourse
+            icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+
+  - name: build-php
+    serial: true
+    public: true
+    plan:
+      - aggregate:
+        - get: builds-yaml
+          resource: php-builds
+          trigger: true
+        - get: binary-builder
+          passed: [binary-builder]
+        - get: buildpacks-ci
+        - get: built-yaml
+          resource: php-built-output
+      - do:
+        - task: build-binary
+          file: buildpacks-ci/tasks/build-binary.yml
+          params:
+            BINARY_NAME: php
+            GIT_SSH_KEY: {{buildpacks-ci-private-key}}
+            RUBYGEM_MIRROR: {{rubygem-mirror}}
+            BINARY_BUILDER_PLATFORM: {{binary-builder-platform}}
+            BINARY_BUILDER_OS_NAME: {{binary-builder-os-name}}
+          privileged: true
+        - put: build-tar
+          params:
+            file: binary-builder-artifacts/original-source-code/*
+        - task: push-binary
+          file: buildpacks-ci/tasks/push-binary.yml
+          params:
+            BINARY_NAME: php
+            BUCKET_NAME: {{buildpacks-binaries-s3-bucket}}
+            AWS_ACCESS_KEY_ID: {{pivotal-buildpacks-s3-access-key}}
+            AWS_SECRET_ACCESS_KEY: {{pivotal-buildpacks-s3-secret-key}}
+            AWS_DEFAULT_REGION: us-east-1
+          privileged: true
+        - put: builds-out
+          params:
+            repository: builds-yaml-artifacts
+            rebase: true
+        on_failure:
+          put: failure-alert
+          params:
+            text: "binary-builder build-php job on Concourse failed! \n Check: $ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME"
+            channel: {{concourse-job-failure-notifications-slack-channel}}
+            username: concourse
+            icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+
+  - name: build-php7
+    serial: true
+    public: true
+    plan:
+      - aggregate:
+        - get: builds-yaml
+          resource: php7-builds
+          trigger: true
+        - get: binary-builder
+          passed: [binary-builder]
+        - get: buildpacks-ci
+        - get: built-yaml
+          resource: php7-built-output
+      - do:
+        - task: build-binary
+          file: buildpacks-ci/tasks/build-binary.yml
+          params:
+            BINARY_NAME: php7
+            GIT_SSH_KEY: {{buildpacks-ci-private-key}}
+            RUBYGEM_MIRROR: {{rubygem-mirror}}
+            BINARY_BUILDER_PLATFORM: {{binary-builder-platform}}
+            BINARY_BUILDER_OS_NAME: {{binary-builder-os-name}}
+          privileged: true
+        - put: build-tar
+          params:
+            file: binary-builder-artifacts/original-source-code/*
+        - task: push-binary
+          file: buildpacks-ci/tasks/push-binary.yml
+          params:
+            BINARY_NAME: php7
+            BUCKET_NAME: {{buildpacks-binaries-s3-bucket}}
+            AWS_ACCESS_KEY_ID: {{pivotal-buildpacks-s3-access-key}}
+            AWS_SECRET_ACCESS_KEY: {{pivotal-buildpacks-s3-secret-key}}
+            AWS_DEFAULT_REGION: us-east-1
+          privileged: true
+        - put: builds-out
+          params:
+            repository: builds-yaml-artifacts
+            rebase: true
+        - put: concourse2tracker
+          params:
+            api_token: {{pivotal-tracker-api-token}}
+            git_path: builds-yaml
+            project_id: {{cf-buildpacks-public-tracker-id}}
+        on_failure:
+          put: failure-alert
+          params:
+            text: "binary-builder build-php7 job on Concourse failed! \n Check: $ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME"
+            channel: {{concourse-job-failure-notifications-slack-channel}}
+            username: concourse
+            icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+
+  - name: build-httpd
+    serial: true
+    public: true
+    plan:
+      - aggregate:
+        - get: builds-yaml
+          resource: httpd-builds
+          trigger: true
+        - get: binary-builder
+          passed: [binary-builder]
+        - get: buildpacks-ci
+        - get: built-yaml
+          resource: httpd-built-output
+      - do:
+        - task: build-binary
+          file: buildpacks-ci/tasks/build-binary.yml
+          params:
+            BINARY_NAME: httpd
+            GIT_SSH_KEY: {{buildpacks-ci-private-key}}
+            RUBYGEM_MIRROR: {{rubygem-mirror}}
+            BINARY_BUILDER_PLATFORM: {{binary-builder-platform}}
+            BINARY_BUILDER_OS_NAME: {{binary-builder-os-name}}
+          privileged: true
+        - put: build-tar
+          params:
+            file: binary-builder-artifacts/original-source-code/*
+        - task: push-binary
+          file: buildpacks-ci/tasks/push-binary.yml
+          params:
+            BINARY_NAME: httpd
+            BUCKET_NAME: {{buildpacks-binaries-s3-bucket}}
+            AWS_ACCESS_KEY_ID: {{pivotal-buildpacks-s3-access-key}}
+            AWS_SECRET_ACCESS_KEY: {{pivotal-buildpacks-s3-secret-key}}
+            AWS_DEFAULT_REGION: us-east-1
+          privileged: true
+        - put: builds-out
+          params:
+            repository: builds-yaml-artifacts
+            rebase: true
+        - put: concourse2tracker
+          params:
+            api_token: {{pivotal-tracker-api-token}}
+            git_path: builds-yaml
+            project_id: {{cf-buildpacks-public-tracker-id}}
+        on_failure:
+          put: failure-alert
+          params:
+            text: "binary-builder build-httpd job on Concourse failed! \n Check: $ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME"
+            channel: {{concourse-job-failure-notifications-slack-channel}}
+            username: concourse
+            icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+
+  - name: test-php
+    serial: true
+    public: true
+    plan:
+      - aggregate:
+        - get: build-tar
+          passed: [ build-php ]
+          trigger: true
+        - get: buildpacks-ci
+      - task: run tests
+        file: buildpacks-ci/tasks/run-unit-tests-for-php.yml
+  - name: test-php7
+    serial: true
+    public: true
+    plan:
+      - aggregate:
+        - get: build-tar
+          passed: [ build-php7 ]
+          trigger: true
+        - get: buildpacks-ci
+      - task: run tests
+        file: buildpacks-ci/tasks/run-unit-tests-for-php7.yml
+  - name: test-nginx
+    serial: true
+    public: true
+    plan:
+      - aggregate:
+        - get: build-tar
+          passed: [ build-nginx ]
+          trigger: true
+        - get: buildpacks-ci
+      - task: run tests
+        file: buildpacks-ci/tasks/run-unit-tests-for-nginx.yml
+
+  - name: trigger-composer-build
+    serial: true
+    public: true
+    plan:
+      - aggregate:
+        - get: buildpacks-ci
+        - get: new-releases
+          resource: composer-new-releases
+          trigger: true
+        - get: binary-builds
+          resource: composer-builds
+      - task: queue-binary-build
+        file: buildpacks-ci/tasks/queue-dependency-build.yml
+        params:
+          DEPENDENCY: composer
+          RUBYGEM_MIRROR: {{rubygem-mirror}}
+      - put: composer-builds
+        params:
+          repository: binary-builds-artifacts
+          rebase: true
+  - name: build-composer
+    serial: true
+    public: true
+    plan:
+      - aggregate:
+        - get: built-yaml
+          resource: composer-built-output
+        - get: builds-yaml
+          resource: composer-builds-in
+          version: every
+          trigger: true
+        - get: binary-builder
+          passed: [binary-builder]
+        - get: buildpacks-ci
+      - do:
+        - task: build-binary
+          file: buildpacks-ci/tasks/build-binary.yml
+          params:
+            GIT_SSH_KEY: {{buildpacks-ci-private-key}}
+            BINARY_NAME: composer
+            RUBYGEM_MIRROR: {{rubygem-mirror}}
+            BINARY_BUILDER_PLATFORM: {{binary-builder-platform}}
+            BINARY_BUILDER_OS_NAME: {{binary-builder-os-name}}
+          privileged: true
+        - put: build-tar
+          params:
+            file: binary-builder-artifacts/original-source-code/*
+        - task: push-binary
+          file: buildpacks-ci/tasks/push-binary.yml
+          params:
+            BINARY_NAME: composer
+            BUCKET_NAME: {{buildpacks-binaries-s3-bucket}}
+            AWS_ACCESS_KEY_ID: {{pivotal-buildpacks-s3-access-key}}
+            AWS_SECRET_ACCESS_KEY: {{pivotal-buildpacks-s3-secret-key}}
+            AWS_DEFAULT_REGION: us-east-1
+          privileged: true
+        - put: builds-out
+          resource: composer-built-output
+          params:
+            repository: builds-yaml-artifacts
+            rebase: true
+        - put: concourse2tracker
+          params:
+            api_token: {{pivotal-tracker-api-token}}
+            git_path: builds-yaml
+            project_id: {{cf-buildpacks-public-tracker-id}}
+        on_failure:
+          put: failure-alert
+          params:
+            text: "binary-builder build-composer job on Concourse failed! \n Check: $ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME"
+            channel: {{concourse-job-failure-notifications-slack-channel}}
+            username: concourse
+            icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+
+  - name: trigger-nginx-build
+    serial: true
+    public: true
+    plan:
+      - aggregate:
+        - get: buildpacks-ci
+        - get: new-releases
+          resource: nginx-new-releases
+          trigger: true
+        - get: binary-builds
+          resource: nginx-builds
+      - task: queue-binary-build
+        file: buildpacks-ci/tasks/queue-dependency-build.yml
+        params:
+          DEPENDENCY: nginx
+          RUBYGEM_MIRROR: {{rubygem-mirror}}
+      - put: nginx-builds
+        params:
+          repository: binary-builds-artifacts
+          rebase: true
+  - name: build-nginx
+    serial: true
+    public: true
+    plan:
+      - aggregate:
+        - get: built-yaml
+          resource: nginx-built-output
+        - get: builds-yaml
+          resource: nginx-builds-in
+          version: every
+          trigger: true
+        - get: binary-builder
+          passed: [binary-builder]
+        - get: buildpacks-ci
+      - do:
+        - task: build-binary
+          file: buildpacks-ci/tasks/build-binary.yml
+          params:
+            GIT_SSH_KEY: {{buildpacks-ci-private-key}}
+            BINARY_NAME: nginx
+            RUBYGEM_MIRROR: {{rubygem-mirror}}
+            BINARY_BUILDER_PLATFORM: {{binary-builder-platform}}
+            BINARY_BUILDER_OS_NAME: {{binary-builder-os-name}}
+          privileged: true
+        - put: build-tar
+          params:
+            file: binary-builder-artifacts/original-source-code/*
+        - task: push-binary
+          file: buildpacks-ci/tasks/push-binary.yml
+          params:
+            BINARY_NAME: nginx
+            BUCKET_NAME: {{buildpacks-binaries-s3-bucket}}
+            AWS_ACCESS_KEY_ID: {{pivotal-buildpacks-s3-access-key}}
+            AWS_SECRET_ACCESS_KEY: {{pivotal-buildpacks-s3-secret-key}}
+            AWS_DEFAULT_REGION: us-east-1
+          privileged: true
+        - put: builds-out
+          resource: nginx-built-output
+          params:
+            repository: builds-yaml-artifacts
+            rebase: true
+        - put: concourse2tracker
+          params:
+            api_token: {{pivotal-tracker-api-token}}
+            git_path: builds-yaml
+            project_id: {{cf-buildpacks-public-tracker-id}}
+        on_failure:
+          put: failure-alert
+          params:
+            text: "binary-builder build-nginx job on Concourse failed! \n Check: $ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME"
+            channel: {{concourse-job-failure-notifications-slack-channel}}
+            username: concourse
+            icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+
+
+  
+  - name: update-nginx-in-php-buildpack
+    serial: true
+    public: true
+    plan:
+      - do:
+        - aggregate:
+          - get: buildpacks-ci
+          - get: buildpack
+            resource: php-buildpack
+          - get: built-out
+            resource: nginx-built-output
+            passed: [ build-nginx ]
+            version: every
+            trigger: true
+        - task: update-dependency-in-manifests
+          file: buildpacks-ci/tasks/update-dependency-in-buildpack.yml
+          params:
+            BUILDPACK_NAME: php
+            DEPENDENCY: nginx
+            TRACKER_PROJECT_ID: {{cf-buildpacks-public-tracker-id}}
+            TRACKER_API_TOKEN: {{pivotal-tracker-api-token}}
+            TRACKER_REQUESTER_ID: {{cf-buildpacks-requester-id}}
+            BUILDPACK_DEPENDENCIES_HOST_DOMAIN: {{buildpack-dependencies-host-domain}}
+            RUBYGEM_MIRROR: {{rubygem-mirror}}
+            DOMAIN_NAME: {{domain-name}}
+        - put: cf-environments
+          resource: cf-edge-environments
+          params:
+            acquire: true
+        - do:
+          - task: rspec
+            file: buildpacks-ci/tasks/test-buildpack-before-auto-update.yml
+            privileged: true
+            params:
+              STACKS: cflinuxfs2
+              COMPOSER_GITHUB_OAUTH_TOKEN: {{composer-github-oauth-token}}
+              CF_PASSWORD: {{ci-cf-password}}
+              RUBYGEM_MIRROR: {{rubygem-mirror}}
+              DOMAIN_NAME: {{domain-name}}
+          - put: php-buildpack
+            params:
+              repository: buildpack-artifacts
+              rebase: true
+          ensure:
+            put: cf-edge-environments
+            params:
+              release: cf-environments
+        on_failure:
+          put: failure-alert
+          params:
+            text: "update-nginx-in-php-buildpack job on Concourse failed! \n Check: $ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME"
+            channel: {{concourse-job-failure-notifications-slack-channel}}
+            username: concourse
+            icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+  
+  - name: update-composer-in-php-buildpack
+    serial: true
+    public: true
+    plan:
+      - do:
+        - aggregate:
+          - get: buildpacks-ci
+          - get: buildpack
+            resource: php-buildpack
+          - get: built-out
+            resource: composer-built-output
+            passed: [ build-composer ]
+            version: every
+            trigger: true
+        - task: update-dependency-in-manifests
+          file: buildpacks-ci/tasks/update-dependency-in-buildpack.yml
+          params:
+            BUILDPACK_NAME: php
+            DEPENDENCY: composer
+            TRACKER_PROJECT_ID: {{cf-buildpacks-public-tracker-id}}
+            TRACKER_API_TOKEN: {{pivotal-tracker-api-token}}
+            TRACKER_REQUESTER_ID: {{cf-buildpacks-requester-id}}
+            BUILDPACK_DEPENDENCIES_HOST_DOMAIN: {{buildpack-dependencies-host-domain}}
+            RUBYGEM_MIRROR: {{rubygem-mirror}}
+            DOMAIN_NAME: {{domain-name}}
+        - put: cf-environments
+          resource: cf-edge-environments
+          params:
+            acquire: true
+        - do:
+          - task: rspec
+            file: buildpacks-ci/tasks/test-buildpack-before-auto-update.yml
+            privileged: true
+            params:
+              STACKS: cflinuxfs2
+              COMPOSER_GITHUB_OAUTH_TOKEN: {{composer-github-oauth-token}}
+              CF_PASSWORD: {{ci-cf-password}}
+              RUBYGEM_MIRROR: {{rubygem-mirror}}
+              DOMAIN_NAME: {{domain-name}}
+          - put: php-buildpack
+            params:
+              repository: buildpack-artifacts
+              rebase: true
+          ensure:
+            put: cf-edge-environments
+            params:
+              release: cf-environments
+        on_failure:
+          put: failure-alert
+          params:
+            text: "update-composer-in-php-buildpack job on Concourse failed! \n Check: $ATC_EXTERNAL_URL/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME"
+            channel: {{concourse-job-failure-notifications-slack-channel}}
+            username: concourse
+            icon_url: http://cl.ly/image/3e1h0H3H2s0P/concourse-logo.png
+  
+

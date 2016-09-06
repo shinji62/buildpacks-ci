@@ -1,0 +1,64 @@
+---
+resource_types:
+- name: slack-notification
+  type: docker-image
+  source:
+    repository: cfcommunity/slack-notification-resource
+    tag: latest
+
+resources:
+  - name: slack-alert-build
+    type: slack-notification
+    source:
+      url: {{buildpack-hook}}
+
+  - name: php-buildpack-official
+    type: git
+    source:
+      uri: git@github.com:cloudfoundry/php-buildpack.git
+      private_key: {{private-key-github-concourse}}
+      branch: master
+      tag_filter: 'v*'
+
+  - name: builds-out
+    type: git
+    source:
+      branch: binary-builds
+      private_key: {{private-key-github-concourse}}
+      uri: {{buildpacks-ci-git-uri}}
+      disable_ci_skip: true
+
+  - name: buildpacks-ci
+    type: git
+    source:
+      uri: {{buildpacks-ci-git-uri-public}}
+      branch: {{buildpacks-ci-git-uri-public-branch}}
+
+jobs:
+- name: Generate_build_Manifest
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: buildpack-repo
+      resource: php-buildpack-official
+    - get: buildpacks-ci
+    - get: builds-yaml
+      resource: builds-out
+  - task: generate-builds
+    file: buildpacks-ci/tasks/generate-builds.yml
+    params:
+     BINARY: php
+  - put: builds-out
+    params:
+      repository: builds-yaml-output
+      rebase: true
+  - put: slack-alert-build
+    params:
+      channel: '#test'
+      text_file: results/results.txt
+      text: |
+        New result for $BUILD_PIPELINE_NAME / $BUILD_JOB_NAME / $BUILD_NAME
+        http://my.concourse.url/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
+
+        Result: $TEXT_FILE_CONTENT

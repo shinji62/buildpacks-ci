@@ -1,2 +1,6 @@
 ---
-php7: []
+php7:
+- version: 7.0.13
+  md5: 79ee358b661a4b70ee3ce1f6ab02df96
+- version: 7.0.14
+  md5: 5e20062f39fb3bd5afeed916866acad9

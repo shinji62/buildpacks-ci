@@ -41,6 +41,7 @@ dependencies.select do |dep|
   if grades.include?("#{dep["name"]}-#{dep["version"]}") and dep["name"] == "php" and !dep.empty?
      p "Replacing " + dep["uri"] + " ===> " + buildpack_dl_repos + grades["#{dep["name"]}-#{dep["version"]}"]["binary"]+ "/" +grades["#{dep["name"]}-#{dep["version"]}"]["file"]
       dep["uri"] = buildpack_dl_repos + grades["#{dep["name"]}-#{dep["version"]}"]["binary"]+ "-yahoo/" +grades["#{dep["name"]}-#{dep["version"]}"]["file"]
+      dep["md5"] = grades["#{dep["name"]}-#{dep["version"]}"]["md5"]
   else
     if dep["name"] == "php" then
   	 missing_dep += "No replacement for #{dep["name"]}-#{dep["version"]}"

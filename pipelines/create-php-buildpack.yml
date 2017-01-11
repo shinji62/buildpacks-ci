@@ -30,6 +30,9 @@ resources:
   #   type: slack-notification
   #   source:
   #     url: {{buildpack-hook}}
+
+
+
 #-----
 # This jobs only looks for new -tagged Yahoo version
 #-----
@@ -84,5 +87,5 @@ jobs:
       RUBYGEM_MIRROR: {{rubygem-mirror}}
   - put: pivotal-buildpack-cached
     params:
-      from: buildpack-artifacts/php_buildpack-cached-v(.*).zip
+      from: buildpack-artifacts/php-buildpack-cached-v(.*).zip
       to: /buildpacks-cached-yahoo/php/

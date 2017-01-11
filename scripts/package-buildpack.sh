@@ -13,8 +13,8 @@ popd
 
 TIMESTAMP=$(date +%s)
 
-CACHED_BUILDPACK="buildpack-master/${BINARY_NAME}_buildpack-cached-v$VERSION.zip"
-CACHED_TIMESTAMP_BUILDPACK="buildpack-artifacts/${BINARY_NAME}-cached-v$VERSION+$TIMESTAMP.zip"
+CACHED_BUILDPACK="buildpack-master/${BINARY_NAME}_buildpack-cached-*.zip"
+CACHED_TIMESTAMP_BUILDPACK="buildpack-artifacts/${BINARY_NAME}-cached-$VERSION+$TIMESTAMP.zip"
 
 mv ${CACHED_BUILDPACK} ${CACHED_TIMESTAMP_BUILDPACK}
 

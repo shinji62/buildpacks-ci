@@ -15,6 +15,7 @@ resources:
       regexp: php_buildpack-cached-v(.*).zip
       access_key_id: {{access-key-concourse-bucket}}
       secret_access_key: {{secret-key-concourse-bucket}}
+      region_name: {{buildpack-s3-region}}
 
 
   - name: buildpack-packager
@@ -87,5 +88,5 @@ jobs:
       RUBYGEM_MIRROR: {{rubygem-mirror}}
   - put: pivotal-buildpack-cached
     params:
-      from: buildpack-artifacts/php-buildpack-cached-v(.*).zip
+      from: buildpack-artifacts/php_buildpack-cached-v(.*).zip
       to: /buildpacks-cached-yahoo/php/

@@ -11,4 +11,4 @@ run:
   path: bash
   args:
     - -cl
-    - buildpacks-ci/tasks/push-binary/task.yml
+    - buildpacks-ci/tasks/push-binary/run.sh

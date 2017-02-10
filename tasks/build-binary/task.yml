@@ -20,7 +20,7 @@ run:
     - |
       tar xvf oracle-tar/instantclient-gwenn*.tar.gz
       mv  ./instantclient_12_1 /oracle
-      buildpacks-ci/scripts/build-binary.rb
-
+      buildpacks-ci/tasks/build-binary/run.sh
+      
 params:
   RUBYGEM_MIRROR:

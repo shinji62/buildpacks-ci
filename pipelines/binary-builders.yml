@@ -31,47 +31,47 @@ resources:
     type: git
     source:
       uri: {{binary-builder-git-uri-fork}}
-      branch: fork-yahoo
+      branch: master
       private_key: {{private-key-github-concourse}}
 
   - name: builds-out
     type: git
     source:
-      branch: binary-builds
+      branch: master
       private_key: {{private-key-github-concourse}}
-      uri: {{buildpacks-ci-git-uri}}
+      uri: {{{binary-builder-git-uri-fork}}
 
   - name: php-builds
     type: git
     source:
-      branch: binary-builds
+      branch: master
       private_key: {{private-key-github-concourse}}
-      uri: {{buildpacks-ci-git-uri}}
-      paths: [ php-builds.yml ]
+      uri: {{buildpacks-ci-git-uri-build-info}}
+      paths: [ binary-builds/php-builds.yml ]
 
   - name: php-built-output
     type: git
     source:
       branch: binary-built-output
       private_key: {{private-key-github-concourse}}
-      uri: {{buildpacks-ci-git-uri}}
-      paths: [ php-built.yml ]
+      uri: {{buildpacks-ci-git-uri-build-info}}
+      paths: [ binary-built-output/php-built.yml ]
 
   - name: php7-builds
     type: git
     source:
-      branch: binary-builds
+      branch: master
       private_key: {{private-key-github-concourse}}
       uri: {{buildpacks-ci-git-uri}}
-      paths: [ php7-builds.yml ]
+      paths: [ binary-builds/php7-builds.yml ]
 
   - name: php7-built-output
     type: git
     source:
-      branch: binary-built-output
+      branch: master
       private_key: {{private-key-github-concourse}}
       uri: {{buildpacks-ci-git-uri}}
-      paths: [ php7-built.yml ]
+      paths: [ binary-built-output/php7-built.yml ]
 
 jobs:
 - name: build-php
@@ -91,7 +91,7 @@ jobs:
         resource: php-built-output
     - do:
       - task: build-binary
-        file: buildpacks-ci/tasks/build-binary.yml
+        file: buildpacks-ci/tasks/build-binary/task.yml
         params:
           BINARY_NAME: php
           GIT_SSH_KEY: {{private-key-github-concourse}}
@@ -100,7 +100,7 @@ jobs:
           BINARY_BUILDER_OS_NAME: {{binary-builder-os-name}}
         privileged: true
       - task: push-binary
-        file: buildpacks-ci/tasks/push-binary.yml
+        file: buildpacks-ci/tasks/push-binary/task.yml
         params:
           BINARY_NAME: php
           BUCKET_NAME: {{buildpacks-binaries-s3-bucket}}
@@ -136,7 +136,7 @@ jobs:
         resource: php7-built-output
     - do:
       - task: build-binary
-        file: buildpacks-ci/tasks/build-binary.yml
+        file: buildpacks-ci/tasks/build-binary/task.yml
         params:
           BINARY_NAME: php7
           GIT_SSH_KEY: {{private-key-github-concourse}}
@@ -145,7 +145,7 @@ jobs:
           BINARY_BUILDER_OS_NAME: {{binary-builder-os-name}}
         privileged: true
       - task: push-binary
-        file: buildpacks-ci/tasks/push-binary.yml
+        file: buildpacks-ci/tasks/push-binary/task.yml
         params:
           BINARY_NAME: php7
           BUCKET_NAME: {{buildpacks-binaries-s3-bucket}}

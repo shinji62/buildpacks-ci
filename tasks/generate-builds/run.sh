@@ -12,7 +12,7 @@ require 'fileutils'
 require 'yaml'
 require 'net/http'
 require 'json'
-require_relative '../lib/git-client'
+require_relative '../../lib/git-client'
 
 
 manifest_file = File.join(Dir.pwd, 'buildpack-repo', "manifest.yml")

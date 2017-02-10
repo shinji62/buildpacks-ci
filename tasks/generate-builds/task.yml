@@ -14,4 +14,4 @@ outputs:
 params:
   BINARY:
 run:
-  path: buildpacks-ci/scripts/getting-phpversion.rb
+  path: buildpacks-ci/tasks/generate-builds/run.sh

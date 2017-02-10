@@ -45,7 +45,7 @@ jobs:
     - get: builds-yaml
       resource: builds-out
   - task: generate-builds
-    file: buildpacks-ci/tasks/generate-builds.yml
+    file: buildpacks-ci/tasks/generate-builds/task.yml
     params:
      BINARY: php
   - put: builds-out

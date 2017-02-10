@@ -23,10 +23,9 @@ resources:
   - name: builds-out
     type: git
     source:
-      branch: binary-builds
+      branch: master
       private_key: {{private-key-github-concourse}}
-      uri: {{buildpacks-ci-git-uri}}
-      disable_ci_skip: true
+      uri: {{buildpacks-ci-git-uri-build-info}}
 
   - name: buildpacks-ci
     type: git
@@ -58,7 +57,5 @@ jobs:
       channel: '#test'
       text_file: results/results.txt
       text: |
-        New result for $BUILD_PIPELINE_NAME / $BUILD_JOB_NAME / $BUILD_NAME
-        http://my.concourse.url/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
-
+        New binary to be build by the binary builder
         Result: $TEXT_FILE_CONTENT

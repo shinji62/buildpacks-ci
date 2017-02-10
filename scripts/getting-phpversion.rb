@@ -16,8 +16,8 @@ require_relative '../lib/git-client'
 
 
 manifest_file = File.join(Dir.pwd, 'buildpack-repo', "manifest.yml")
-output_file   = File.join(Dir.pwd, 'builds-yaml', "php-builds.yml")
-output_file_php7   = File.join(Dir.pwd, 'builds-yaml', "php7-builds.yml")
+output_file   = File.join(Dir.pwd, 'builds-yaml',"binary-builds", "php-builds.yml")
+output_file_php7   = File.join(Dir.pwd, 'builds-yaml',"binary-builds", "php7-builds.yml")
 output_file_result = File.join(Dir.pwd, 'results', "results.txt")
 buildpack_manifest = YAML.load_file(manifest_file)
 buildpack_version =  %x[cat buildpack-repo/VERSION]

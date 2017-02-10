@@ -39,7 +39,7 @@ resources:
     source:
       branch: master
       private_key: {{private-key-github-concourse}}
-      uri: {{{binary-builder-git-uri-fork}}
+      uri: {{binary-builder-git-uri-fork}}
 
   - name: php-builds
     type: git
@@ -52,7 +52,7 @@ resources:
   - name: php-built-output
     type: git
     source:
-      branch: binary-built-output
+      branch: master
       private_key: {{private-key-github-concourse}}
       uri: {{buildpacks-ci-git-uri-build-info}}
       paths: [ binary-built-output/php-built.yml ]
@@ -93,7 +93,7 @@ jobs:
       - task: build-binary
         file: buildpacks-ci/tasks/build-binary/task.yml
         params:
-          BINARY_NAME: php
+          DEPENDENCY: php
           GIT_SSH_KEY: {{private-key-github-concourse}}
           RUBYGEM_MIRROR: {{rubygem-mirror}}
           BINARY_BUILDER_PLATFORM: {{binary-builder-platform}}
@@ -138,7 +138,7 @@ jobs:
       - task: build-binary
         file: buildpacks-ci/tasks/build-binary/task.yml
         params:
-          BINARY_NAME: php7
+          DEPENDENCY: php7
           GIT_SSH_KEY: {{private-key-github-concourse}}
           RUBYGEM_MIRROR: {{rubygem-mirror}}
           BINARY_BUILDER_PLATFORM: {{binary-builder-platform}}

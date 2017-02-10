@@ -34,11 +34,13 @@ class ConcourseBinaryBuilder
 
     build_dependency
 
+    add_md5_to_binary_name
+
     copy_binaries_to_output_directory
 
-    git_msg = create_git_commit_msg
+    create_git_commit_msg
 
-    commit_yaml_artifacts(git_msg)
+    commit_yaml_artifacts
   end
 
   private
@@ -63,16 +65,26 @@ class ConcourseBinaryBuilder
       end
       @flags << %( --#{key}="#{value}")
     end
+
+    if %w(php php7).include? dependency
+      @flags << " --php-extensions-file=#{File.join(builds_dir, 'binary-builds', "#{dependency}-extensions.yml")}"
+    end
   end
 
   def build_dependency
     case dependency
     when 'bower'
       @source_url = "https://registry.npmjs.org/bower/-/bower-#{latest_build['version']}.tgz"
-      download_non_build_dependency(source_url, 'bower', 'tgz')
+      output_file = "bower-#{latest_build['version']}.tgz"
+      download_non_build_dependency(source_url, output_file)
     when 'composer'
       @source_url = "https://getcomposer.org/download/#{latest_build['version']}/composer.phar"
-      download_non_build_dependency(source_url, 'composer', 'phar')
+      output_file = "composer-#{latest_build['version']}.phar"
+      download_non_build_dependency(source_url, output_file)
+    when 'yarn'
+      @source_url = "https://yarnpkg.com/downloads/#{latest_build['version']}/yarn-v#{latest_build['version']}.tar.gz"
+      output_file = "yarn-v#{latest_build['version']}.tar.gz"
+      download_non_build_dependency(source_url, output_file)
     else
       binary_builder_output = run_binary_builder(flags)
       /- url:\s(.*)$/.match(binary_builder_output)
@@ -80,8 +92,16 @@ class ConcourseBinaryBuilder
     end
   end
 
-  def download_non_build_dependency(url, dependency_name, file_extension)
-      system("curl #{url} -o #{binary_builder_dir}/#{dependency_name}-#{latest_build['version']}.#{file_extension}") or raise "Could not download #{url}"
+  def download_non_build_dependency(url, output_file)
+      system("curl -L #{url} -o #{binary_builder_dir}/#{output_file}") or raise "Could not download #{url}"
+  end
+
+  def add_md5_to_binary_name
+    Dir["#{binary_builder_dir}/*.tgz", "#{binary_builder_dir}/*.tar.gz", "#{binary_builder_dir}/*.phar"].each do |name|
+      prefix,suffix = /(.*)(\.tgz|\.tar\.gz|\.phar)$/.match(name)[1,2]
+      md5sum = Digest::MD5.file(name).hexdigest[0..7]
+      FileUtils.mv(name, "#{prefix}-#{md5sum}#{suffix}")
+    end
   end
 
   def copy_binaries_to_output_directory
@@ -94,7 +114,7 @@ class ConcourseBinaryBuilder
     ext = case dependency
             when 'composer' then
               '*.phar'
-            when 'go', 'dotnet' then
+            when 'go', 'dotnet', 'yarn' then
               '*.tar.gz'
             else
               '-*.tgz'
@@ -108,9 +128,9 @@ class ConcourseBinaryBuilder
 
     ci_skip = remaining_builds[dependency].empty? && !is_automated
 
-    git_msg = "Build #{dependency} - #{version_built}\n\n"
+    @git_msg = "Build #{dependency} - #{version_built}\n\n"
 
-    git_yaml = {
+    @build_output_info = {
       "filename" => short_filename,
       'version' => version_built,
       'md5' => md5sum,
@@ -119,19 +139,19 @@ class ConcourseBinaryBuilder
       "source #{verification_type}" => verification_value
     }
 
-    git_msg += git_yaml.to_yaml
+    @git_msg += @build_output_info.to_yaml
 
-    git_msg += "\n\n[ci skip]" if ci_skip
-    git_msg
+    @git_msg += "\n\n[ci skip]" if ci_skip
   end
 
   def dependency_version_not_built(built_versions)
     !built_versions.any? do |version_hash|
-      version_hash['version'] == latest_build['version']
+      version_hash['version'] == @build_output_info['version'] &&
+      version_hash['sha256'] == @build_output_info['sha256']
     end
   end
 
-  def commit_yaml_artifacts(git_msg)
+  def commit_yaml_artifacts
     #don't change behavior for non-automated builds
     if is_automated
       #get latest version of <binary>-built.yml
@@ -146,11 +166,11 @@ class ConcourseBinaryBuilder
 
         File.write(built_file, built.to_yaml)
       end
-      commit_and_rsync(built_dir, builds_yaml_artifacts, git_msg, built_file)
+      commit_and_rsync(built_dir, builds_yaml_artifacts, built_file)
     else
       builds_file = File.join(builds_dir, 'binary-builds', "#{dependency}-builds.yml")
       File.write(builds_file, remaining_builds.to_yaml)
-      commit_and_rsync(builds_dir, builds_yaml_artifacts, git_msg, builds_file)
+      commit_and_rsync(builds_dir, builds_yaml_artifacts, builds_file)
     end
   end
 
@@ -186,18 +206,18 @@ class ConcourseBinaryBuilder
   end
 
   def is_automated
-    automated = %w(bower composer dotnet godep glide nginx node)
+    automated = %w(bower composer dotnet godep glide nginx node yarn)
     automated.include? dependency
   end
 
-  def commit_and_rsync(in_dir, out_dir, git_msg, file)
+  def commit_and_rsync(in_dir, out_dir, file)
 
     Dir.chdir(in_dir) do
 
       GitClient.set_global_config('user.email', 'getourneau@pivotal.io')
-      GitClient.set_global_config('user.name', 'CF Buildpacks Builder Fork')
+      GitClient.set_global_config('user.name', 'CF Buildpacks Fork Gwenn')
       GitClient.add_file(file)
-      GitClient.safe_commit(git_msg)
+      GitClient.safe_commit(@git_msg)
 
       system("rsync -a #{in_dir}/ #{out_dir}")
     end

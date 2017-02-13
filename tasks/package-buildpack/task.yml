@@ -11,4 +11,4 @@ inputs:
 outputs:
   - name: buildpack-artifacts
 run:
-  path: buildpacks-ci/scripts/package-buildpack/run.sh
+  path: buildpacks-ci/tasks/package-buildpack/run.sh

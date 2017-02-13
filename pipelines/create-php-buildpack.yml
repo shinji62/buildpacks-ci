@@ -27,10 +27,10 @@ resources:
 
 
 
-  # - name: slack-alert-build
-  #   type: slack-notification
-  #   source:
-  #     url: {{buildpack-hook}}
+  - name: slack-alert-build
+    type: slack-notification
+    source:
+      url: {{buildpack-hook}}
 
 
 
@@ -42,7 +42,7 @@ resources:
     source:
       uri: git@github.com:shinji62/php-buildpack.git
       private_key: {{private-key-github-concourse}}
-      branch: yahoo-fork
+      branch: gwenn-fork
       tag_filter: 'v*-yahoo'
 
   - name: buildpacks-ci
@@ -61,7 +61,7 @@ jobs:
       resource: php-buildpack-fork
     - get: buildpacks-ci
   - task: create-yahoo-manifest
-    file: buildpacks-ci/tasks/update-manifest.yml
+    file: buildpacks-ci/tasks/update-manifest/task.yml
     params:
       AWS_DEFAULT_REGION: ap-northeast-1
       AWS_ACCESS_KEY_ID: {{access-key-concourse-bucket}}
@@ -72,6 +72,7 @@ jobs:
       repository: buildpack-repo-out
       rebase: true
 
+
 - name: Create-PHP-buildpack
   public: true
   serial: true
@@ -79,10 +80,11 @@ jobs:
   - aggregate:
     - get: buildpack-master
       resource: php-buildpack-fork
+      passed: [create-yahoo-manifest]
     - get: buildpack-packager
     - get: buildpacks-ci
   - task: generate-buildpack
-    file: buildpacks-ci/tasks/package-buildpack.yml
+    file: buildpacks-ci/tasks/package-buildpack/task.yml
     params:
       BINARY_NAME: php
       RUBYGEM_MIRROR: {{rubygem-mirror}}
@@ -90,3 +92,9 @@ jobs:
     params:
       from: buildpack-artifacts/php_buildpack-cached-v(.*).zip
       to: /buildpacks-cached-yahoo/php/
+  - put: slack-alert-build
+    params:
+      channel: '#test'
+      text: |
+        New Buildpack have been build
+        Result: $TEXT_FILE_CONTENT

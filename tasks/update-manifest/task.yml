@@ -10,7 +10,7 @@ inputs:
 outputs:
   - name: buildpack-repo-out
 run:
-  path: buildpacks-ci/scripts/update-manifest.rb
+  path: buildpacks-ci/scripts/update-manifest/run.sh
 params:
   AWS_DEFAULT_REGION:
   AWS_ACCESS_KEY_ID:

@@ -68,7 +68,6 @@ def commit_and_rsync(in_dir, out_dir, git_msg, filename)
     GitClient.set_global_config('user.email', 'getourneau@pivotal.io')
     GitClient.set_global_config('user.name', 'Gwenn custom buildpack')
     GitClient.add_file(filename)
-    GitClient.checkout_branch("yahoo-fork")
     GitClient.safe_commit(git_msg)
     system("rsync -a #{in_dir}/ #{out_dir}")
   end

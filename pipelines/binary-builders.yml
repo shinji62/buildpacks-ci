@@ -39,7 +39,7 @@ resources:
     source:
       branch: master
       private_key: {{private-key-github-concourse}}
-      uri: {{binary-builder-git-uri-fork}}
+      uri: {{buildpacks-ci-git-uri-build-info}}
 
   - name: php-builds
     type: git
@@ -62,7 +62,7 @@ resources:
     source:
       branch: master
       private_key: {{private-key-github-concourse}}
-      uri: {{buildpacks-ci-git-uri}}
+      uri: {{buildpacks-ci-git-uri-build-info}}
       paths: [ binary-builds/php7-builds.yml ]
 
   - name: php7-built-output
@@ -70,7 +70,7 @@ resources:
     source:
       branch: master
       private_key: {{private-key-github-concourse}}
-      uri: {{buildpacks-ci-git-uri}}
+      uri: {{buildpacks-ci-git-uri-build-info}}
       paths: [ binary-built-output/php7-built.yml ]
 
 jobs:

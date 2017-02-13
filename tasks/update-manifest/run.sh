@@ -6,7 +6,7 @@ require 'digest'
 require 'fileutils'
 require 'yaml'
 
-task_root_dir = File.expand_path(File.join(File.dirname(__FILE__), '..','..'))
+task_root_dir = File.expand_path(File.join(File.dirname(__FILE__),'..', '..','..'))
 require "#{task_root_dir}/buildpacks-ci/lib/git-client"
 
 

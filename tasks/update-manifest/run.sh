@@ -28,8 +28,8 @@ listed_binaries= %x[aws s3 ls ${BP_BINARIES}/concourse-binaries/ --recursive].sp
 listed_binaries.select do |rest|
   if !rest.empty?
   /php7?-yahoo\/((php7?)-(.*)-linux-x64.(\d.*).tgz)/.match(rest[3]) {
-     md5_url = "#{buildpack_dl_repos}#{$2}-yahoo/#{$1}.md5"
-     md5 = %x[curl -s #{buildpack_dl_repos}#{$2}-yahoo/#{$1}.md5]
+     md5_url = "#{buildpack_dl_repos}#{$2}/#{$1}.md5"
+     md5 = %x[curl -s #{buildpack_dl_repos}#{$2}/#{$1}.md5]
   	 grades["php-#{$3}"] = {"binary"=>$2,"version"=>$3,"timestamp"=>$4,"file"=>$1, "md5"=>md5}
   }
   end

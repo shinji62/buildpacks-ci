@@ -26,10 +26,10 @@ grades = Hash.new(0)
 # List all binaries
 listed_binaries= %x[aws s3 ls ${BP_BINARIES}/concourse-binaries/ --recursive].split(/$/).map(&:strip).map(&:split)
 listed_binaries.select do |rest|
+  puts rest.inspect
   if !rest.empty?
-  /php7?-yahoo\/((php7?)-(.*)-linux-x64.(\d.*).tgz)/.match(rest[3]) {
-     md5_url = "#{buildpack_dl_repos}#{$2}/#{$1}.md5"
-     md5 = %x[curl -s #{buildpack_dl_repos}#{$2}/#{$1}.md5]
+  /php7?-yahoo\/((php7?)-(.*)-linux-x64.(\w.*).tgz)/.match(rest[3]) {
+     md5 = %x[curl -s #{buildpack_dl_repos}#{$2}-yahoo/#{$1}.md5]
   	 grades["php-#{$3}"] = {"binary"=>$2,"version"=>$3,"timestamp"=>$4,"file"=>$1, "md5"=>md5}
   }
   end
